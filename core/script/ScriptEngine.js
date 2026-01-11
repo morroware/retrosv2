@@ -175,7 +175,12 @@ class ScriptEngineClass {
                 runId
             };
         } catch (error) {
-            const errorInfo = this.formatError(error);
+            // Enhance error with source context if it's a ScriptError
+            if (error instanceof ScriptError && !error.source) {
+                error.source = source;
+            }
+
+            const errorInfo = this.formatError(error, source);
 
             // For legacy callbacks, also pass line number if available
             if (legacyErrorCallback && errorInfo.line) {
@@ -353,15 +358,22 @@ class ScriptEngineClass {
      * @param {Error} error - Error object
      * @returns {Object} Formatted error info
      */
-    formatError(error) {
+    formatError(error, source = '') {
         if (error instanceof ScriptError) {
+            // Ensure source is set for context display
+            if (source && !error.source) {
+                error.source = source;
+            }
             return {
                 type: error.name,
                 message: error.message,
                 line: error.line,
                 column: error.column,
                 hint: error.hint,
-                toString: () => error.toString()
+                source: error.source,
+                toString: () => error.toString(),
+                toStringWithContext: (contextLines) =>
+                    error.toStringWithContext(error.source || source, contextLines)
             };
         }
 
@@ -371,7 +383,9 @@ class ScriptEngineClass {
             line: 0,
             column: 0,
             hint: '',
-            toString: () => error.message || String(error)
+            source: '',
+            toString: () => error.message || String(error),
+            toStringWithContext: () => error.message || String(error)
         };
     }
 

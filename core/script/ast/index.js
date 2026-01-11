@@ -57,6 +57,8 @@ export {
     IndexExpression,
     GroupingExpression,
     InterpolatedStringExpression,
+    TernaryExpression,
+    NullishExpression,
     PRECEDENCE,
     getOperatorPrecedence,
     isRightAssociative

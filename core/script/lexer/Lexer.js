@@ -66,11 +66,23 @@ export class Lexer {
             case ':': this.addToken(TokenType.COLON); break;
             case ';': this.addToken(TokenType.SEMICOLON); break;
             case '.': this.addToken(TokenType.DOT); break;
-            case '+': this.addToken(TokenType.PLUS); break;
-            case '-': this.addToken(TokenType.MINUS); break;
-            case '*': this.addToken(TokenType.STAR); break;
-            case '/': this.addToken(TokenType.SLASH); break;
-            case '%': this.addToken(TokenType.PERCENT); break;
+
+            // Arithmetic operators (with compound assignment variants)
+            case '+':
+                this.addToken(this.match('=') ? TokenType.PLUS_ASSIGN : TokenType.PLUS);
+                break;
+            case '-':
+                this.addToken(this.match('=') ? TokenType.MINUS_ASSIGN : TokenType.MINUS);
+                break;
+            case '*':
+                this.addToken(this.match('=') ? TokenType.STAR_ASSIGN : TokenType.STAR);
+                break;
+            case '/':
+                this.addToken(this.match('=') ? TokenType.SLASH_ASSIGN : TokenType.SLASH);
+                break;
+            case '%':
+                this.addToken(this.match('=') ? TokenType.PERCENT_ASSIGN : TokenType.PERCENT);
+                break;
 
             // Two-character operators
             case '=':
@@ -99,6 +111,14 @@ export class Lexer {
                 } else {
                     // Single | for text content
                     this.addToken(TokenType.PIPE);
+                }
+                break;
+            case '?':
+                // Check for ?? (null coalescing) or single ? (ternary)
+                if (this.match('?')) {
+                    this.addToken(TokenType.NULLISH);
+                } else {
+                    this.addToken(TokenType.QUESTION);
                 }
                 break;
 

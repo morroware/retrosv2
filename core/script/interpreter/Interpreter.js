@@ -324,11 +324,10 @@ export class Interpreter {
     }
 
     async visitTryCatchStatement(stmt) {
-        // Save control flow state - if try block completes with RETURN/BREAK,
-        // we want to preserve that even if no error occurs
-        const savedControlFlow = this.controlFlow;
+        let errorToRethrow = null;
 
         try {
+            // Execute try block
             for (const s of stmt.tryBody) {
                 await this.visitStatement(s);
                 if (this.controlFlow !== ControlFlow.NONE) {
@@ -336,27 +335,67 @@ export class Interpreter {
                 }
             }
         } catch (error) {
-            // Reset control flow when entering catch block - the error interrupted
-            // normal control flow, so we start fresh in the catch block
-            this.controlFlow = ControlFlow.NONE;
+            // Only execute catch block if one was provided
+            if (stmt.catchBody && stmt.catchBody.length > 0) {
+                // Reset control flow when entering catch block
+                this.controlFlow = ControlFlow.NONE;
 
-            // Store error in catch variable
-            const catchEnv = this.currentEnv.extend();
-            catchEnv.set(stmt.errorVar, error.message || String(error));
+                // Store error in catch variable
+                const catchEnv = this.currentEnv.extend();
+                catchEnv.set(stmt.errorVar, error.message || String(error));
 
+                const previousEnv = this.currentEnv;
+                this.currentEnv = catchEnv;
+
+                try {
+                    for (const s of stmt.catchBody) {
+                        await this.visitStatement(s);
+                        if (this.controlFlow !== ControlFlow.NONE) {
+                            break;
+                        }
+                    }
+                } finally {
+                    this.currentEnv = previousEnv;
+                }
+            } else {
+                // No catch block - save error to rethrow after finally
+                errorToRethrow = error;
+            }
+        }
+
+        // Execute finally block if present - always runs
+        if (stmt.finallyBody && stmt.finallyBody.length > 0) {
+            // Save current control flow state - finally shouldn't override it
+            const savedControlFlow = this.controlFlow;
+            const savedReturnValue = this.returnValue;
+
+            // Execute finally block
+            const finallyEnv = this.currentEnv.extend();
             const previousEnv = this.currentEnv;
-            this.currentEnv = catchEnv;
+            this.currentEnv = finallyEnv;
 
             try {
-                for (const s of stmt.catchBody) {
+                for (const s of stmt.finallyBody) {
                     await this.visitStatement(s);
-                    if (this.controlFlow !== ControlFlow.NONE) {
-                        break;
-                    }
+                    // Note: finally block's control flow does NOT propagate
+                    // This matches JavaScript semantics where finally cleanup runs
+                    // but doesn't override the try/catch's control flow
                 }
             } finally {
                 this.currentEnv = previousEnv;
             }
+
+            // Restore control flow from try/catch (unless finally set its own)
+            // If finally had a return/break, it takes precedence
+            if (this.controlFlow === ControlFlow.NONE) {
+                this.controlFlow = savedControlFlow;
+                this.returnValue = savedReturnValue;
+            }
+        }
+
+        // Rethrow error if there was no catch block to handle it
+        if (errorToRethrow !== null) {
+            throw errorToRethrow;
         }
     }
 
@@ -804,6 +843,25 @@ export class Interpreter {
             }
         }
         return result;
+    }
+
+    async visitTernaryExpression(expr) {
+        const condition = await this.visitExpression(expr.condition);
+        // Short-circuit evaluation - only evaluate the branch we need
+        if (this.isTruthy(condition)) {
+            return await this.visitExpression(expr.trueExpr);
+        } else {
+            return await this.visitExpression(expr.falseExpr);
+        }
+    }
+
+    async visitNullishExpression(expr) {
+        const left = await this.visitExpression(expr.left);
+        // Only evaluate right side if left is null or undefined
+        if (left === null || left === undefined) {
+            return await this.visitExpression(expr.right);
+        }
+        return left;
     }
 
     // ==================== HELPER METHODS ====================

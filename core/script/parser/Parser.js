@@ -142,8 +142,9 @@ export class Parser {
             case TokenType.VIDEO:
                 return this.parseVideoStatement();
             case TokenType.VARIABLE:
-                // Check for assignment: $var = value
-                if (this.checkNext(TokenType.ASSIGN)) {
+                // Check for assignment: $var = value or compound assignment $var += value
+                if (this.checkNext(TokenType.ASSIGN, TokenType.PLUS_ASSIGN, TokenType.MINUS_ASSIGN,
+                                   TokenType.STAR_ASSIGN, TokenType.SLASH_ASSIGN, TokenType.PERCENT_ASSIGN)) {
                     return this.parseAssignment();
                 }
                 // Fall through to treat as expression/command
@@ -157,7 +158,7 @@ export class Parser {
     }
 
     /**
-     * Parse set statement: set $var = value
+     * Parse set statement: set $var = value or set $var += value
      */
     parseSetStatement() {
         const location = this.getLocation();
@@ -169,13 +170,38 @@ export class Parser {
         }
         const varName = this.advance().value;
 
-        // Expect '='
-        if (!this.match(TokenType.ASSIGN)) {
-            throw this.error('Expected "=" after variable name');
+        // Check for assignment operator (regular or compound)
+        const assignOp = this.peek();
+        const isCompoundAssign = [
+            TokenType.PLUS_ASSIGN, TokenType.MINUS_ASSIGN,
+            TokenType.STAR_ASSIGN, TokenType.SLASH_ASSIGN, TokenType.PERCENT_ASSIGN
+        ].includes(assignOp.type);
+
+        if (!this.match(TokenType.ASSIGN) && !isCompoundAssign) {
+            throw this.error('Expected "=" or compound assignment operator after variable name');
+        }
+
+        if (isCompoundAssign) {
+            this.advance(); // consume compound assignment operator
         }
 
         // Parse value expression
-        const value = this.parseExpression();
+        const rightValue = this.parseExpression();
+
+        // Handle compound assignment
+        let value = rightValue;
+        if (isCompoundAssign) {
+            const varExpr = new AST.VariableExpression(varName, location);
+            let operator;
+            switch (assignOp.type) {
+                case TokenType.PLUS_ASSIGN: operator = '+'; break;
+                case TokenType.MINUS_ASSIGN: operator = '-'; break;
+                case TokenType.STAR_ASSIGN: operator = '*'; break;
+                case TokenType.SLASH_ASSIGN: operator = '/'; break;
+                case TokenType.PERCENT_ASSIGN: operator = '%'; break;
+            }
+            value = new AST.BinaryExpression(operator, varExpr, rightValue, location);
+        }
 
         return new AST.SetStatement(varName, value, location);
     }
@@ -545,7 +571,8 @@ export class Parser {
     }
 
     /**
-     * Parse try/catch: try { ... } catch $err { ... }
+     * Parse try/catch/finally: try { ... } catch $err { ... } finally { ... }
+     * Both catch and finally are optional, but at least one must be present
      */
     parseTryCatch() {
         const location = this.getLocation();
@@ -554,21 +581,33 @@ export class Parser {
         // Parse try body
         const tryBody = this.parseBlock();
 
-        // Expect 'catch'
-        if (!this.match(TokenType.CATCH)) {
-            throw this.error('Expected "catch" after try block');
-        }
-
-        // Optional error variable
+        // Initialize optional parts
+        let catchBody = [];
         let errorVar = 'error';
-        if (this.check(TokenType.VARIABLE)) {
-            errorVar = this.advance().value;
+        let finallyBody = null;
+
+        // Parse optional catch block
+        if (this.match(TokenType.CATCH)) {
+            // Optional error variable
+            if (this.check(TokenType.VARIABLE)) {
+                errorVar = this.advance().value;
+            }
+
+            // Parse catch body
+            catchBody = this.parseBlock();
         }
 
-        // Parse catch body
-        const catchBody = this.parseBlock();
+        // Parse optional finally block
+        if (this.match(TokenType.FINALLY)) {
+            finallyBody = this.parseBlock();
+        }
 
-        return new AST.TryCatchStatement(tryBody, catchBody, errorVar, location);
+        // Must have at least catch or finally
+        if (catchBody.length === 0 && finallyBody === null) {
+            throw this.error('Expected "catch" or "finally" after try block');
+        }
+
+        return new AST.TryCatchStatement(tryBody, catchBody, errorVar, location, finallyBody);
     }
 
     /**
@@ -987,9 +1026,38 @@ export class Parser {
     parseAssignment() {
         const location = this.getLocation();
         const varName = this.advance().value; // consume variable
-        this.advance(); // consume '='
+        const assignOp = this.advance(); // consume assignment operator
 
-        const value = this.parseExpression();
+        const rightValue = this.parseExpression();
+
+        // Handle compound assignment operators by desugaring to binary expression
+        // e.g., $x += 5  becomes  $x = $x + 5
+        let value = rightValue;
+        if (assignOp.type !== TokenType.ASSIGN) {
+            const varExpr = new AST.VariableExpression(varName, location);
+            let operator;
+            switch (assignOp.type) {
+                case TokenType.PLUS_ASSIGN:
+                    operator = '+';
+                    break;
+                case TokenType.MINUS_ASSIGN:
+                    operator = '-';
+                    break;
+                case TokenType.STAR_ASSIGN:
+                    operator = '*';
+                    break;
+                case TokenType.SLASH_ASSIGN:
+                    operator = '/';
+                    break;
+                case TokenType.PERCENT_ASSIGN:
+                    operator = '%';
+                    break;
+                default:
+                    throw this.error(`Unknown compound assignment operator: ${assignOp.type}`);
+            }
+            value = new AST.BinaryExpression(operator, varExpr, rightValue, location);
+        }
+
         return new AST.SetStatement(varName, value, location);
     }
 
@@ -1063,9 +1131,46 @@ export class Parser {
 
     /**
      * Parse an expression using Pratt parsing
+     * Handles ternary conditional at lowest precedence
      */
     parseExpression() {
-        return this.parseBinaryExpression(0);
+        return this.parseTernaryExpression();
+    }
+
+    /**
+     * Parse ternary conditional expression: condition ? trueExpr : falseExpr
+     */
+    parseTernaryExpression() {
+        const location = this.getLocation();
+        let expr = this.parseNullishExpression();
+
+        // Check for ternary operator
+        if (this.check(TokenType.QUESTION)) {
+            this.advance(); // consume '?'
+            const trueExpr = this.parseExpression(); // Full expression for true branch
+            this.expect(TokenType.COLON, 'Expected ":" in ternary expression');
+            const falseExpr = this.parseTernaryExpression(); // Right-associative
+            expr = new AST.TernaryExpression(expr, trueExpr, falseExpr, location);
+        }
+
+        return expr;
+    }
+
+    /**
+     * Parse null coalescing expression: expr ?? defaultExpr
+     */
+    parseNullishExpression() {
+        const location = this.getLocation();
+        let left = this.parseBinaryExpression(0);
+
+        // Check for nullish coalescing operator
+        while (this.check(TokenType.NULLISH)) {
+            this.advance(); // consume '??'
+            const right = this.parseBinaryExpression(0);
+            left = new AST.NullishExpression(left, right, location);
+        }
+
+        return left;
     }
 
     /**

@@ -33,6 +33,7 @@ export const TokenType = {
     // Keywords - Error Handling
     TRY: 'TRY',
     CATCH: 'CATCH',
+    FINALLY: 'FINALLY',
 
     // Keywords - Events
     ON: 'ON',
@@ -98,6 +99,11 @@ export const TokenType = {
 
     // Operators - Assignment
     ASSIGN: 'ASSIGN',       // =
+    PLUS_ASSIGN: 'PLUS_ASSIGN',     // +=
+    MINUS_ASSIGN: 'MINUS_ASSIGN',   // -=
+    STAR_ASSIGN: 'STAR_ASSIGN',     // *=
+    SLASH_ASSIGN: 'SLASH_ASSIGN',   // /=
+    PERCENT_ASSIGN: 'PERCENT_ASSIGN', // %=
 
     // Operators - Logical
     AND: 'AND',             // &&
@@ -105,6 +111,8 @@ export const TokenType = {
     NOT: 'NOT',             // !
     AMPERSAND: 'AMPERSAND', // & (single, for text)
     PIPE: 'PIPE',           // | (single, for text)
+    QUESTION: 'QUESTION',   // ? (ternary operator)
+    NULLISH: 'NULLISH',     // ?? (null coalescing)
 
     // Delimiters
     LBRACE: 'LBRACE',       // {
@@ -154,6 +162,7 @@ export const KEYWORDS = {
     // Error Handling
     'try': TokenType.TRY,
     'catch': TokenType.CATCH,
+    'finally': TokenType.FINALLY,
 
     // Events
     'on': TokenType.ON,
