@@ -1164,6 +1164,54 @@ export const EventSchema = {
         }
     },
 
+    'clipboard:text:read': {
+        namespace: 'clipboard',
+        action: 'text:read',
+        description: 'Text read from clipboard programmatically',
+        payload: {
+            text: 'string',
+            source: 'string?',
+            timestamp: 'number?'
+        },
+        example: {
+            text: 'Hello from clipboard',
+            source: 'script-engine',
+            timestamp: 1234567890
+        }
+    },
+
+    'clipboard:text:write': {
+        namespace: 'clipboard',
+        action: 'text:write',
+        description: 'Text written to clipboard programmatically',
+        payload: {
+            text: 'string',
+            previousText: 'string?',
+            source: 'string?'
+        },
+        example: {
+            text: 'New clipboard content',
+            previousText: 'Old content',
+            source: 'script-engine'
+        }
+    },
+
+    'clipboard:data:change': {
+        namespace: 'clipboard',
+        action: 'data:change',
+        description: 'Clipboard contents changed',
+        payload: {
+            type: 'string',
+            hasData: 'boolean',
+            source: 'string?'
+        },
+        example: {
+            type: 'text',
+            hasData: true,
+            source: 'user'
+        }
+    },
+
     // ==========================================
     // KEYBOARD/INPUT EVENTS
     // ==========================================
@@ -2491,6 +2539,52 @@ export const EventSchema = {
         }
     },
 
+    'keyboard:hotkey:register': {
+        namespace: 'keyboard',
+        action: 'hotkey:register',
+        description: 'Custom hotkey registered',
+        payload: {
+            id: 'string',
+            combination: 'string',
+            description: 'string?'
+        },
+        example: {
+            id: 'custom-save',
+            combination: 'Ctrl+Shift+S',
+            description: 'Save all files'
+        }
+    },
+
+    'keyboard:hotkey:unregister': {
+        namespace: 'keyboard',
+        action: 'hotkey:unregister',
+        description: 'Custom hotkey unregistered',
+        payload: {
+            id: 'string',
+            combination: 'string'
+        },
+        example: {
+            id: 'custom-save',
+            combination: 'Ctrl+Shift+S'
+        }
+    },
+
+    'keyboard:hotkey:trigger': {
+        namespace: 'keyboard',
+        action: 'hotkey:trigger',
+        description: 'Custom hotkey triggered',
+        payload: {
+            id: 'string',
+            combination: 'string',
+            timestamp: 'number'
+        },
+        example: {
+            id: 'custom-save',
+            combination: 'Ctrl+Shift+S',
+            timestamp: 1234567890
+        }
+    },
+
     // ==========================================
     // INPUT EVENTS - TOUCH
     // ==========================================
@@ -2830,6 +2924,261 @@ export const EventSchema = {
         }
     },
 
+    'fs:watch:start': {
+        namespace: 'fs',
+        action: 'watch:start',
+        description: 'File/directory watch started',
+        payload: {
+            path: 'string',
+            watchId: 'string',
+            recursive: 'boolean?'
+        },
+        example: {
+            path: 'C:/Documents',
+            watchId: 'watch-001',
+            recursive: true
+        }
+    },
+
+    'fs:watch:stop': {
+        namespace: 'fs',
+        action: 'watch:stop',
+        description: 'File/directory watch stopped',
+        payload: {
+            watchId: 'string',
+            path: 'string'
+        },
+        example: {
+            watchId: 'watch-001',
+            path: 'C:/Documents'
+        }
+    },
+
+    'fs:file:access': {
+        namespace: 'fs',
+        action: 'file:access',
+        description: 'File accessed (read or executed)',
+        payload: {
+            path: 'string',
+            accessType: 'string',
+            timestamp: 'number'
+        },
+        example: {
+            path: 'C:/Documents/file.txt',
+            accessType: 'read',
+            timestamp: 1234567890
+        }
+    },
+
+    'fs:search:start': {
+        namespace: 'fs',
+        action: 'search:start',
+        description: 'File search started',
+        payload: {
+            searchId: 'string',
+            query: 'string',
+            path: 'string'
+        },
+        example: {
+            searchId: 'search-001',
+            query: '*.txt',
+            path: 'C:/Documents'
+        }
+    },
+
+    'fs:search:result': {
+        namespace: 'fs',
+        action: 'search:result',
+        description: 'File search result found',
+        payload: {
+            searchId: 'string',
+            path: 'string',
+            match: 'object'
+        },
+        example: {
+            searchId: 'search-001',
+            path: 'C:/Documents/found.txt',
+            match: { name: 'found.txt', size: 1024 }
+        }
+    },
+
+    'fs:search:complete': {
+        namespace: 'fs',
+        action: 'search:complete',
+        description: 'File search completed',
+        payload: {
+            searchId: 'string',
+            resultCount: 'number',
+            duration: 'number'
+        },
+        example: {
+            searchId: 'search-001',
+            resultCount: 15,
+            duration: 500
+        }
+    },
+
+    'fs:properties:change': {
+        namespace: 'fs',
+        action: 'properties:change',
+        description: 'File properties changed',
+        payload: {
+            path: 'string',
+            property: 'string',
+            value: 'boolean'
+        },
+        example: {
+            path: 'C:/Documents/file.txt',
+            property: 'readonly',
+            value: true
+        }
+    },
+
+    'fs:drive:status': {
+        namespace: 'fs',
+        action: 'drive:status',
+        description: 'Drive status changed',
+        payload: {
+            drive: 'string',
+            status: 'string',
+            freeSpace: 'number?',
+            totalSpace: 'number?'
+        },
+        example: {
+            drive: 'C:',
+            status: 'ready',
+            freeSpace: 50000000,
+            totalSpace: 100000000
+        }
+    },
+
+    // ==========================================
+    // NOTEPAD EVENTS
+    // ==========================================
+    'notepad:content:change': {
+        namespace: 'notepad',
+        action: 'content:change',
+        description: 'Notepad content modified',
+        payload: {
+            windowId: 'string',
+            length: 'number',
+            modified: 'boolean'
+        },
+        example: {
+            windowId: 'notepad-1',
+            length: 1250,
+            modified: true
+        }
+    },
+
+    'notepad:selection:change': {
+        namespace: 'notepad',
+        action: 'selection:change',
+        description: 'Text selection changed',
+        payload: {
+            windowId: 'string',
+            start: 'number',
+            end: 'number',
+            selectedText: 'string?'
+        },
+        example: {
+            windowId: 'notepad-1',
+            start: 10,
+            end: 25,
+            selectedText: 'selected text'
+        }
+    },
+
+    'notepad:find:search': {
+        namespace: 'notepad',
+        action: 'find:search',
+        description: 'Find operation executed',
+        payload: {
+            windowId: 'string',
+            query: 'string',
+            matchCount: 'number',
+            currentMatch: 'number?'
+        },
+        example: {
+            windowId: 'notepad-1',
+            query: 'hello',
+            matchCount: 5,
+            currentMatch: 1
+        }
+    },
+
+    'notepad:find:next': {
+        namespace: 'notepad',
+        action: 'find:next',
+        description: 'Find next match',
+        payload: {
+            windowId: 'string',
+            position: 'number',
+            found: 'boolean'
+        },
+        example: {
+            windowId: 'notepad-1',
+            position: 45,
+            found: true
+        }
+    },
+
+    'notepad:replace': {
+        namespace: 'notepad',
+        action: 'replace',
+        description: 'Text replaced',
+        payload: {
+            windowId: 'string',
+            searchText: 'string',
+            replaceText: 'string',
+            replaceCount: 'number'
+        },
+        example: {
+            windowId: 'notepad-1',
+            searchText: 'old',
+            replaceText: 'new',
+            replaceCount: 3
+        }
+    },
+
+    'notepad:undo': {
+        namespace: 'notepad',
+        action: 'undo',
+        description: 'Undo performed',
+        payload: {
+            windowId: 'string'
+        },
+        example: {
+            windowId: 'notepad-1'
+        }
+    },
+
+    'notepad:redo': {
+        namespace: 'notepad',
+        action: 'redo',
+        description: 'Redo performed',
+        payload: {
+            windowId: 'string'
+        },
+        example: {
+            windowId: 'notepad-1'
+        }
+    },
+
+    'notepad:goto:line': {
+        namespace: 'notepad',
+        action: 'goto:line',
+        description: 'Cursor moved to line',
+        payload: {
+            windowId: 'string',
+            lineNumber: 'number'
+        },
+        example: {
+            windowId: 'notepad-1',
+            lineNumber: 42
+        }
+    },
+
     // ==========================================
     // APP EVENTS (Extended)
     // ==========================================
@@ -3126,6 +3475,54 @@ export const EventSchema = {
         example: {
             id: 'notepad-1',
             count: 3
+        }
+    },
+
+    'window:bounds:change': {
+        namespace: 'window',
+        action: 'bounds:change',
+        description: 'Window bounds changed programmatically (position and/or size)',
+        payload: {
+            id: 'string',
+            x: 'number',
+            y: 'number',
+            width: 'number',
+            height: 'number',
+            previousX: 'number?',
+            previousY: 'number?',
+            previousWidth: 'number?',
+            previousHeight: 'number?',
+            source: 'string?'
+        },
+        example: {
+            id: 'window-notepad-1',
+            x: 100,
+            y: 100,
+            width: 800,
+            height: 600,
+            previousX: 50,
+            previousY: 50,
+            previousWidth: 600,
+            previousHeight: 400,
+            source: 'script'
+        }
+    },
+
+    'window:zindex:change': {
+        namespace: 'window',
+        action: 'zindex:change',
+        description: 'Window z-index changed (layer order)',
+        payload: {
+            id: 'string',
+            zIndex: 'number',
+            previousZIndex: 'number?',
+            isFocused: 'boolean?'
+        },
+        example: {
+            id: 'window-calculator-1',
+            zIndex: 1005,
+            previousZIndex: 1000,
+            isFocused: true
         }
     },
 
@@ -4836,6 +5233,106 @@ export const EventSchema = {
         example: { path: ['C:', 'Users', 'User', 'Pictures'], filename: 'photo.png' }
     },
 
+    'paint:stroke:move': {
+        namespace: 'paint',
+        action: 'stroke:move',
+        description: 'Drawing stroke in progress',
+        payload: {
+            x: 'number',
+            y: 'number',
+            points: 'array?'
+        },
+        example: { x: 150, y: 100, points: [{x: 100, y: 50}, {x: 125, y: 75}, {x: 150, y: 100}] }
+    },
+
+    'paint:undo': {
+        namespace: 'paint',
+        action: 'undo',
+        description: 'Undo action performed',
+        payload: {
+            actionType: 'string?'
+        },
+        example: { actionType: 'stroke' }
+    },
+
+    'paint:redo': {
+        namespace: 'paint',
+        action: 'redo',
+        description: 'Redo action performed',
+        payload: {
+            actionType: 'string?'
+        },
+        example: { actionType: 'stroke' }
+    },
+
+    'paint:draw:line': {
+        namespace: 'paint',
+        action: 'draw:line',
+        description: 'Line drawn programmatically',
+        payload: {
+            x1: 'number',
+            y1: 'number',
+            x2: 'number',
+            y2: 'number',
+            color: 'string?',
+            width: 'number?'
+        },
+        example: { x1: 10, y1: 10, x2: 100, y2: 100, color: '#000000', width: 2 }
+    },
+
+    'paint:draw:rect': {
+        namespace: 'paint',
+        action: 'draw:rect',
+        description: 'Rectangle drawn programmatically',
+        payload: {
+            x: 'number',
+            y: 'number',
+            width: 'number',
+            height: 'number',
+            color: 'string?',
+            filled: 'boolean?'
+        },
+        example: { x: 50, y: 50, width: 100, height: 80, color: '#FF0000', filled: false }
+    },
+
+    'paint:draw:circle': {
+        namespace: 'paint',
+        action: 'draw:circle',
+        description: 'Circle drawn programmatically',
+        payload: {
+            x: 'number',
+            y: 'number',
+            radius: 'number',
+            color: 'string?',
+            filled: 'boolean?'
+        },
+        example: { x: 100, y: 100, radius: 50, color: '#0000FF', filled: true }
+    },
+
+    'paint:draw:pixel': {
+        namespace: 'paint',
+        action: 'draw:pixel',
+        description: 'Pixel drawn programmatically',
+        payload: {
+            x: 'number',
+            y: 'number',
+            color: 'string'
+        },
+        example: { x: 150, y: 75, color: '#00FF00' }
+    },
+
+    'paint:flood:fill': {
+        namespace: 'paint',
+        action: 'flood:fill',
+        description: 'Flood fill performed',
+        payload: {
+            x: 'number',
+            y: 'number',
+            color: 'string'
+        },
+        example: { x: 100, y: 100, color: '#FFFF00' }
+    },
+
     // ==========================================
     // WINAMP/MEDIA EVENTS
     // ==========================================
@@ -4903,6 +5400,107 @@ export const EventSchema = {
             duration: 'number'
         },
         example: { position: 60, duration: 180 }
+    },
+
+    'media:track:load': {
+        namespace: 'media',
+        action: 'track:load',
+        description: 'Media track loaded',
+        payload: {
+            trackId: 'string',
+            title: 'string?',
+            artist: 'string?',
+            duration: 'number?'
+        },
+        example: { trackId: 'track-001', title: 'My Song', artist: 'Artist Name', duration: 240 }
+    },
+
+    'media:track:end': {
+        namespace: 'media',
+        action: 'track:end',
+        description: 'Track finished playing',
+        payload: {
+            trackId: 'string',
+            duration: 'number'
+        },
+        example: { trackId: 'track-001', duration: 240 }
+    },
+
+    'media:position:change': {
+        namespace: 'media',
+        action: 'position:change',
+        description: 'Playback position changed via seeking',
+        payload: {
+            position: 'number',
+            previousPosition: 'number?',
+            duration: 'number'
+        },
+        example: { position: 120, previousPosition: 60, duration: 240 }
+    },
+
+    'media:volume:change': {
+        namespace: 'media',
+        action: 'volume:change',
+        description: 'Volume level changed',
+        payload: {
+            volume: 'number',
+            previousVolume: 'number?',
+            muted: 'boolean?'
+        },
+        example: { volume: 75, previousVolume: 50, muted: false }
+    },
+
+    'media:playlist:change': {
+        namespace: 'media',
+        action: 'playlist:change',
+        description: 'Playlist modified',
+        payload: {
+            action: 'string',
+            trackCount: 'number'
+        },
+        example: { action: 'add', trackCount: 15 }
+    },
+
+    'media:repeat:change': {
+        namespace: 'media',
+        action: 'repeat:change',
+        description: 'Repeat mode changed',
+        payload: {
+            repeat: 'string'
+        },
+        example: { repeat: 'all' }
+    },
+
+    'media:shuffle:change': {
+        namespace: 'media',
+        action: 'shuffle:change',
+        description: 'Shuffle mode changed',
+        payload: {
+            shuffle: 'boolean'
+        },
+        example: { shuffle: true }
+    },
+
+    'media:visualizer:change': {
+        namespace: 'media',
+        action: 'visualizer:change',
+        description: 'Visualizer mode changed',
+        payload: {
+            visualizer: 'string',
+            previousVisualizer: 'string?'
+        },
+        example: { visualizer: 'spectrum', previousVisualizer: 'oscilloscope' }
+    },
+
+    'media:eq:change': {
+        namespace: 'media',
+        action: 'eq:change',
+        description: 'Equalizer settings changed',
+        payload: {
+            preset: 'string?',
+            bands: 'array?'
+        },
+        example: { preset: 'rock', bands: [2, 4, 3, 1, -1, -2, 0, 1, 2, 3] }
     },
 
     // ==========================================

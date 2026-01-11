@@ -16,6 +16,8 @@ import { registerDialogBuiltins } from './DialogBuiltins.js';
 import { registerJsonBuiltins } from './JsonBuiltins.js';
 import { registerDebugBuiltins } from './DebugBuiltins.js';
 import { registerTerminalBuiltins } from './TerminalBuiltins.js';
+import { registerClipboardBuiltins } from './ClipboardBuiltins.js';
+import { registerWindowBuiltins } from './WindowBuiltins.js';
 
 /**
  * Register all built-in functions with an interpreter
@@ -33,6 +35,8 @@ export function registerAllBuiltins(interpreter) {
     registerJsonBuiltins(interpreter);
     registerDebugBuiltins(interpreter);
     registerTerminalBuiltins(interpreter);
+    registerClipboardBuiltins(interpreter);
+    registerWindowBuiltins(interpreter);
 }
 
 export {
@@ -46,7 +50,9 @@ export {
     registerDialogBuiltins,
     registerJsonBuiltins,
     registerDebugBuiltins,
-    registerTerminalBuiltins
+    registerTerminalBuiltins,
+    registerClipboardBuiltins,
+    registerWindowBuiltins
 };
 
 export default registerAllBuiltins;
