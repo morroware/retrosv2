@@ -177,19 +177,31 @@ class StateManagerClass {
      * @param {*} value - New value
      */
     notifySubscribers(path, value) {
-        // Notify exact path subscribers
+        // Notify exact path subscribers with error isolation
         if (this.subscribers.has(path)) {
-            this.subscribers.get(path).forEach(cb => cb(value, path));
+            this.subscribers.get(path).forEach(cb => {
+                try {
+                    cb(value, path);
+                } catch (error) {
+                    console.error(`[StateManager] Subscriber error for path "${path}":`, error);
+                }
+            });
         }
 
-        // Notify parent path subscribers
+        // Notify parent path subscribers with error isolation
         const parts = path.split('.');
         while (parts.length > 1) {
             parts.pop();
             const parentPath = parts.join('.');
             if (this.subscribers.has(parentPath)) {
                 const parentValue = this.getState(parentPath);
-                this.subscribers.get(parentPath).forEach(cb => cb(parentValue, path));
+                this.subscribers.get(parentPath).forEach(cb => {
+                    try {
+                        cb(parentValue, path);
+                    } catch (error) {
+                        console.error(`[StateManager] Subscriber error for parent path "${parentPath}":`, error);
+                    }
+                });
             }
         }
     }

@@ -117,7 +117,13 @@ export function registerClipboardBuiltins(interpreter) {
      * @returns {Promise<boolean>} True if successful, false otherwise
      */
     interpreter.registerBuiltin('copyToClipboard', async (text) => {
-        return await interpreter.getBuiltin('clipboardWrite')(text);
+        // Directly call the clipboardWrite builtin through the interpreter's builtins map
+        const clipboardWrite = interpreter.builtins.get('clipboardWrite');
+        if (clipboardWrite) {
+            return await clipboardWrite(text);
+        }
+        console.error('[ClipboardBuiltins] clipboardWrite builtin not found');
+        return false;
     });
 
     /**

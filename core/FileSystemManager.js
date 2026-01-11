@@ -698,12 +698,15 @@ class FileSystemManager {
     const node = this.getNode(path);
     if (!node || !node.children) return;
 
-    for (const [name, item] of Object.entries(node.children)) {
+    // Get entries as array first to avoid mutation during iteration
+    const entries = Object.entries(node.children);
+    for (const [name, item] of entries) {
       const itemPath = [...path, name];
       if (item.type === 'directory') {
         this.deleteDirectoryRecursive(itemPath);
       }
-      // File will be deleted when parent is deleted
+      // Delete both files and directories
+      delete node.children[name];
     }
   }
 

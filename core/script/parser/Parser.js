@@ -1452,10 +1452,11 @@ export class Parser {
 
     /**
      * Check if at end of expression (more permissive)
+     * Binary operator present means we should CONTINUE parsing, not end
      */
     isExpressionEnd() {
         return this.isStatementEnd() ||
-               this.getBinaryOperator() !== null;
+               this.getBinaryOperator() === null;
     }
 
     /**

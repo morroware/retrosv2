@@ -20,6 +20,12 @@ class DesktopRendererClass {
         // Bound handlers for selection box
         this.boundUpdateSelection = this.updateSelection.bind(this);
         this.boundEndSelection = this.endSelection.bind(this);
+
+        // Store unsubscribe functions for cleanup
+        this.unsubscribers = [];
+
+        // AbortController for desktop event listeners
+        this.abortController = null;
     }
 
     /**
@@ -38,36 +44,77 @@ class DesktopRendererClass {
         // Initial render
         this.render();
 
-        // Subscribe to state changes
-        StateManager.subscribe('icons', () => this.render());
+        // Subscribe to state changes and store unsubscribe functions
+        this.unsubscribers.push(
+            StateManager.subscribe('icons', () => this.render())
+        );
 
         // Listen for render requests
-        EventBus.on('desktop:render', () => this.render());
+        this.unsubscribers.push(
+            EventBus.on('desktop:render', () => this.render())
+        );
 
         // Listen for file system changes
-        EventBus.on('filesystem:changed', () => this.render());
-        EventBus.on('filesystem:file:changed', () => this.render());
-        EventBus.on('filesystem:directory:changed', () => this.render());
+        this.unsubscribers.push(
+            EventBus.on('filesystem:changed', () => this.render()),
+            EventBus.on('filesystem:file:changed', () => this.render()),
+            EventBus.on('filesystem:directory:changed', () => this.render())
+        );
 
         // Listen for clipboard cut state changes
-        EventBus.on('clipboard:cut-state', ({ cutPaths }) => {
-            this.cutItemPaths = cutPaths || [];
-            this.updateCutVisualState();
-        });
+        this.unsubscribers.push(
+            EventBus.on('clipboard:cut-state', ({ cutPaths }) => {
+                this.cutItemPaths = cutPaths || [];
+                this.updateCutVisualState();
+            })
+        );
 
         // Listen for recycle bin requests to recycle file icons
-        EventBus.on('recyclebin:recycle-file', ({ iconId }) => {
-            const iconEl = this.desktop.querySelector(`[data-icon-id="${iconId}"]`);
-            if (iconEl && iconEl._iconData) {
-                this.recycleFileToTrash(iconEl._iconData);
-                this.render();
-            }
-        });
+        this.unsubscribers.push(
+            EventBus.on('recyclebin:recycle-file', ({ iconId }) => {
+                const iconEl = this.desktop.querySelector(`[data-icon-id="${iconId}"]`);
+                if (iconEl && iconEl._iconData) {
+                    this.recycleFileToTrash(iconEl._iconData);
+                    this.render();
+                }
+            })
+        );
 
         // Setup desktop events
         this.setupDesktopEvents();
 
         console.log('[DesktopRenderer] Initialized');
+    }
+
+    /**
+     * Destroy the renderer and clean up all subscriptions and event listeners
+     */
+    destroy() {
+        // Unsubscribe from all EventBus and StateManager subscriptions
+        this.unsubscribers.forEach(unsub => {
+            if (typeof unsub === 'function') {
+                unsub();
+            }
+        });
+        this.unsubscribers = [];
+
+        // Abort all desktop event listeners
+        if (this.abortController) {
+            this.abortController.abort();
+            this.abortController = null;
+        }
+
+        // Remove selection box if it exists
+        if (this.selectionBox) {
+            this.selectionBox.remove();
+            this.selectionBox = null;
+        }
+
+        // Clean up any pending document listeners
+        document.removeEventListener('mousemove', this.boundUpdateSelection);
+        document.removeEventListener('mouseup', this.boundEndSelection);
+
+        console.log('[DesktopRenderer] Destroyed');
     }
 
     /**
@@ -353,6 +400,10 @@ class DesktopRendererClass {
      * Setup desktop-level events
      */
     setupDesktopEvents() {
+        // Create AbortController for desktop event listeners for proper cleanup
+        this.abortController = new AbortController();
+        const signal = this.abortController.signal;
+
         // Context menu on desktop
         this.desktop.addEventListener('contextmenu', (e) => {
             if (e.target === this.desktop) {
@@ -363,21 +414,21 @@ class DesktopRendererClass {
                     type: 'desktop'
                 });
             }
-        });
+        }, { signal });
 
         // Selection box
         this.desktop.addEventListener('mousedown', (e) => {
             if (e.target === this.desktop && e.button === 0) {
                 this.startSelection(e);
             }
-        });
+        }, { signal });
 
         // Click to deselect
         this.desktop.addEventListener('click', (e) => {
             if (e.target === this.desktop) {
                 this.deselectAll();
             }
-        });
+        }, { signal });
 
         // HTML5 Drag and Drop - Desktop is a drop zone
         this.desktop.addEventListener('dragover', (e) => {
@@ -413,14 +464,14 @@ class DesktopRendererClass {
                     }
                 }
             }
-        });
+        }, { signal });
 
         this.desktop.addEventListener('dragleave', (e) => {
             // Only remove if actually leaving the desktop
             if (e.target === this.desktop) {
                 this.desktop.classList.remove('drop-target');
             }
-        });
+        }, { signal });
 
         this.desktop.addEventListener('drop', (e) => {
             e.preventDefault();
@@ -464,7 +515,7 @@ class DesktopRendererClass {
 
             // Otherwise handle as file drop from MyComputer
             this.handleFileDrop(e);
-        });
+        }, { signal });
     }
 
     /**

@@ -318,24 +318,16 @@ class SemanticEventBusClass {
             // Determine response event name
             const responseEvent = options.responseEvent || `${eventName}:response`;
 
-            // Store pending request
+            // Store pending request with unsubscribe reference for cleanup
             const pendingRequest = {
                 requestId,
                 resolve,
                 reject,
                 timeout: null,
                 eventName,
-                responseEvent
+                responseEvent,
+                unsubscribe: null
             };
-
-            // Set timeout
-            pendingRequest.timeout = setTimeout(() => {
-                this.pendingRequests.delete(requestId);
-                this.stats.requestsTimedOut++;
-                reject(new Error(`Request timeout for "${eventName}" after ${timeout}ms`));
-            }, timeout);
-
-            this.pendingRequests.set(requestId, pendingRequest);
 
             // Listen for response (one time)
             const unsubscribe = this.on(responseEvent, (response) => {
@@ -348,6 +340,22 @@ class SemanticEventBusClass {
                     resolve(response);
                 }
             });
+
+            // Store unsubscribe reference for timeout cleanup
+            pendingRequest.unsubscribe = unsubscribe;
+
+            // Set timeout - also cleanup listener on timeout
+            pendingRequest.timeout = setTimeout(() => {
+                // Clean up the listener to prevent memory leak
+                if (pendingRequest.unsubscribe) {
+                    pendingRequest.unsubscribe();
+                }
+                this.pendingRequests.delete(requestId);
+                this.stats.requestsTimedOut++;
+                reject(new Error(`Request timeout for "${eventName}" after ${timeout}ms`));
+            }, timeout);
+
+            this.pendingRequests.set(requestId, pendingRequest);
 
             // Emit the request with requestId in payload
             this.emit(eventName, { ...payload, requestId });

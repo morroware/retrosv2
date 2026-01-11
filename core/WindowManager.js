@@ -38,6 +38,8 @@ class WindowManagerClass {
         this.boundTouchDragEnd = this.handleTouchDragEnd.bind(this);
         this.boundTouchResizeMove = this.handleTouchResizeMove.bind(this);
         this.boundTouchResizeEnd = this.handleTouchResizeEnd.bind(this);
+        // Window cleanup - stores AbortControllers per window for proper listener cleanup
+        this.windowCleanup = new Map();
     }
 
     /**
@@ -196,20 +198,24 @@ class WindowManagerClass {
         const controls = windowEl.querySelector('.window-controls');
         const resizeHandles = windowEl.querySelectorAll('.resize-handle');
 
+        // Create AbortController for this window's listeners for proper cleanup
+        const abortController = new AbortController();
+        const signal = abortController.signal;
+
         // Title bar drag (mouse)
         titleBar.addEventListener('mousedown', (e) => {
             if (e.target.closest('.window-controls')) return;
             this.startDrag(e, id);
-        });
+        }, { signal });
 
         // Title bar drag (touch)
         titleBar.addEventListener('touchstart', (e) => {
             if (e.target.closest('.window-controls')) return;
             this.startTouchDrag(e, id);
-        }, { passive: false });
+        }, { passive: false, signal });
 
         // Double-click/tap to maximize
-        titleBar.addEventListener('dblclick', () => this.maximize(id));
+        titleBar.addEventListener('dblclick', () => this.maximize(id), { signal });
 
         // Window controls
         controls.addEventListener('click', (e) => {
@@ -217,23 +223,26 @@ class WindowManagerClass {
             if (action === 'minimize') this.minimize(id);
             else if (action === 'maximize') this.maximize(id);
             else if (action === 'close') this.close(id);
-        });
+        }, { signal });
 
         // Resize handles - all 8 directions (mouse)
         resizeHandles.forEach(handle => {
             handle.addEventListener('mousedown', (e) => {
                 const direction = handle.dataset.direction;
                 this.startResize(e, id, direction);
-            });
+            }, { signal });
             // Touch support for resize
             handle.addEventListener('touchstart', (e) => {
                 const direction = handle.dataset.direction;
                 this.startTouchResize(e, id, direction);
-            }, { passive: false });
+            }, { passive: false, signal });
         });
 
         // Click to focus
-        windowEl.addEventListener('mousedown', () => this.focus(id));
+        windowEl.addEventListener('mousedown', () => this.focus(id), { signal });
+
+        // Store AbortController for cleanup on window close
+        this.windowCleanup.set(id, abortController);
     }
 
     /**
@@ -383,6 +392,13 @@ class WindowManagerClass {
             // Call onClose callback if provided
             if (windowData && windowData.onClose) {
                 windowData.onClose();
+            }
+
+            // Clean up event listeners before removing from DOM
+            const abortController = this.windowCleanup.get(id);
+            if (abortController) {
+                abortController.abort();
+                this.windowCleanup.delete(id);
             }
 
             // Remove from DOM
