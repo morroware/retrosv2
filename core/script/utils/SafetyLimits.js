@@ -75,7 +75,21 @@ export class SafetyLimits {
      * @param {number} ms - Timeout in milliseconds (0 = no timeout)
      */
     setTimeout(ms) {
-        this.currentTimeout = ms;
+        // Validate input: must be a non-negative number
+        const timeout = Number(ms);
+        if (isNaN(timeout) || timeout < 0) {
+            console.warn(`[SafetyLimits] Invalid timeout value: ${ms}, using default`);
+            this.currentTimeout = this.limits.DEFAULT_EXECUTION_TIMEOUT;
+            return;
+        }
+        // Cap at a reasonable maximum (10 minutes) to prevent accidental infinite timeouts
+        const MAX_TIMEOUT = 600000;
+        if (timeout > MAX_TIMEOUT) {
+            console.warn(`[SafetyLimits] Timeout ${ms}ms exceeds maximum (${MAX_TIMEOUT}ms), clamping`);
+            this.currentTimeout = MAX_TIMEOUT;
+            return;
+        }
+        this.currentTimeout = timeout;
     }
 
     /**
