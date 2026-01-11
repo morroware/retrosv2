@@ -117,6 +117,7 @@ export class Interpreter {
 
     async visitBlockStatement(stmt) {
         for (const s of stmt.statements) {
+            this.limits.checkTimeout();
             await this.visitStatement(s);
             if (this.controlFlow !== ControlFlow.NONE) {
                 break;
@@ -323,6 +324,10 @@ export class Interpreter {
     }
 
     async visitTryCatchStatement(stmt) {
+        // Save control flow state - if try block completes with RETURN/BREAK,
+        // we want to preserve that even if no error occurs
+        const savedControlFlow = this.controlFlow;
+
         try {
             for (const s of stmt.tryBody) {
                 await this.visitStatement(s);
@@ -331,6 +336,10 @@ export class Interpreter {
                 }
             }
         } catch (error) {
+            // Reset control flow when entering catch block - the error interrupted
+            // normal control flow, so we start fresh in the catch block
+            this.controlFlow = ControlFlow.NONE;
+
             // Store error in catch variable
             const catchEnv = this.currentEnv.extend();
             catchEnv.set(stmt.errorVar, error.message || String(error));
@@ -374,6 +383,11 @@ export class Interpreter {
         }
 
         const handler = async (eventData) => {
+            // Don't execute if script has been stopped
+            if (this.shouldStop) {
+                return;
+            }
+
             const handlerEnv = this.currentEnv.extend();
             handlerEnv.set('event', eventData);
 
@@ -382,10 +396,15 @@ export class Interpreter {
 
             try {
                 for (const s of stmt.body) {
+                    // Check stop flag between statements
+                    if (this.shouldStop) {
+                        break;
+                    }
                     await this.visitStatement(s);
                 }
             } catch (error) {
-                this.onError(error.message);
+                const errorMsg = error.message || String(error);
+                this.onError(`Error in event handler '${stmt.eventName}': ${errorMsg}`);
             } finally {
                 this.currentEnv = previousEnv;
             }
@@ -652,11 +671,13 @@ export class Interpreter {
         }
 
         // Also emit a video play event for scripts listening
-        EventBus.emit('videoplayer:requested', {
-            src: source,
-            options: options,
-            timestamp: Date.now()
-        });
+        if (EventBus) {
+            EventBus.emit('videoplayer:requested', {
+                src: source,
+                options: options,
+                timestamp: Date.now()
+            });
+        }
     }
 
     async visitCommandStatement(stmt) {

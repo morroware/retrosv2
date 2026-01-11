@@ -35,6 +35,9 @@ class ScriptEngineClass {
         this.isInitialized = false;
         this.isRunning = false;
 
+        // Run ID counter to detect stale operations and handle race conditions
+        this.currentRunId = 0;
+
         // Event callbacks
         this.outputCallback = null;
         this.errorCallback = null;
@@ -99,11 +102,13 @@ class ScriptEngineClass {
         if (this.isRunning) {
             return {
                 success: false,
-                error: 'Script already running'
+                error: 'Script already running',
+                runId: this.currentRunId
             };
         }
 
         this.isRunning = true;
+        const runId = ++this.currentRunId;
 
         // Store any legacy callbacks temporarily
         const legacyOutputCallback = options.onOutput;
@@ -161,12 +166,13 @@ class ScriptEngineClass {
             }
 
             // Emit completion
-            this.emitComplete({ success: true, result });
+            this.emitComplete({ success: true, result, runId });
 
             return {
                 success: true,
                 result,
-                variables
+                variables,
+                runId
             };
         } catch (error) {
             const errorInfo = this.formatError(error);
@@ -177,11 +183,12 @@ class ScriptEngineClass {
             }
 
             this.emitError(errorInfo.message);
-            this.emitComplete({ success: false, error: errorInfo });
+            this.emitComplete({ success: false, error: errorInfo, runId });
 
             return {
                 success: false,
-                error: errorInfo
+                error: errorInfo,
+                runId
             };
         } finally {
             this.isRunning = false;
@@ -253,6 +260,23 @@ class ScriptEngineClass {
      */
     getVariables() {
         return this.interpreter ? this.interpreter.getVariables() : {};
+    }
+
+    /**
+     * Get current run ID (useful for tracking async operations)
+     * @returns {number} Current run ID
+     */
+    getRunId() {
+        return this.currentRunId;
+    }
+
+    /**
+     * Check if a specific run is still active
+     * @param {number} runId - Run ID to check
+     * @returns {boolean} True if the run is still active
+     */
+    isRunActive(runId) {
+        return this.isRunning && this.currentRunId === runId;
     }
 
     /**

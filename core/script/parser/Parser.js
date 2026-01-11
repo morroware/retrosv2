@@ -1154,13 +1154,49 @@ export class Parser {
             // Parse arguments (more permissive - until end of expression context)
             const args = [];
             while (!this.isExpressionEnd()) {
-                args.push(this.parsePrimaryExpression());
+                args.push(this.parsePostfixExpression());
             }
 
             return new AST.CallExpression(funcName, args, location);
         }
 
-        return this.parsePrimaryExpression();
+        return this.parsePostfixExpression();
+    }
+
+    /**
+     * Parse postfix expressions (member access and index access)
+     * Handles: $obj.property, $arr[0], $obj["key"], and chains like $a.b[0].c
+     */
+    parsePostfixExpression() {
+        let expr = this.parsePrimaryExpression();
+
+        // Keep parsing postfix operators as long as we see them
+        while (true) {
+            if (this.check(TokenType.DOT)) {
+                // Member access: expr.property
+                this.advance(); // consume '.'
+                const location = this.getLocation();
+
+                // Property name must be an identifier or keyword
+                if (!this.check(TokenType.IDENTIFIER) && !this.peek().isKeyword()) {
+                    throw this.error('Expected property name after "."');
+                }
+                const property = this.advance().value;
+                expr = new AST.MemberExpression(expr, property, location);
+            } else if (this.check(TokenType.LBRACKET)) {
+                // Index access: expr[index]
+                this.advance(); // consume '['
+                const location = this.getLocation();
+
+                const index = this.parseExpression();
+                this.expect(TokenType.RBRACKET, 'Expected "]" after index');
+                expr = new AST.IndexExpression(expr, index, location);
+            } else {
+                break;
+            }
+        }
+
+        return expr;
     }
 
     /**
