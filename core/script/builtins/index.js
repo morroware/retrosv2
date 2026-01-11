@@ -16,6 +16,11 @@ import { registerDialogBuiltins } from './DialogBuiltins.js';
 import { registerJsonBuiltins } from './JsonBuiltins.js';
 import { registerDebugBuiltins } from './DebugBuiltins.js';
 import { registerTerminalBuiltins } from './TerminalBuiltins.js';
+import { registerClipboardBuiltins } from './ClipboardBuiltins.js';
+import { registerWindowBuiltins } from './WindowBuiltins.js';
+import { registerPaintBuiltins } from './PaintBuiltins.js';
+import { registerMediaBuiltins } from './MediaBuiltins.js';
+import { registerNotepadBuiltins } from './NotepadBuiltins.js';
 
 /**
  * Register all built-in functions with an interpreter
@@ -33,6 +38,11 @@ export function registerAllBuiltins(interpreter) {
     registerJsonBuiltins(interpreter);
     registerDebugBuiltins(interpreter);
     registerTerminalBuiltins(interpreter);
+    registerClipboardBuiltins(interpreter);
+    registerWindowBuiltins(interpreter);
+    registerPaintBuiltins(interpreter);
+    registerMediaBuiltins(interpreter);
+    registerNotepadBuiltins(interpreter);
 }
 
 export {
@@ -46,7 +56,12 @@ export {
     registerDialogBuiltins,
     registerJsonBuiltins,
     registerDebugBuiltins,
-    registerTerminalBuiltins
+    registerTerminalBuiltins,
+    registerClipboardBuiltins,
+    registerWindowBuiltins,
+    registerPaintBuiltins,
+    registerMediaBuiltins,
+    registerNotepadBuiltins
 };
 
 export default registerAllBuiltins;
