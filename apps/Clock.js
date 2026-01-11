@@ -176,16 +176,20 @@ class Clock extends AppBase {
     }
 
     onClose() {
-        // Clean up intervals
+        // Clean up all intervals
         const swInterval = this.getInstanceState('stopwatchInterval');
         const timerInterval = this.getInstanceState('timerInterval');
         const clockInterval = this.getInstanceState('clockInterval');
         const alarmChecker = this.getInstanceState('alarmChecker');
+        const beepInterval = this.getInstanceState('beepInterval');
+        const flashInterval = this.getInstanceState('flashInterval');
 
         if (swInterval) clearInterval(swInterval);
         if (timerInterval) clearInterval(timerInterval);
         if (clockInterval) clearInterval(clockInterval);
         if (alarmChecker) clearInterval(alarmChecker);
+        if (beepInterval) clearInterval(beepInterval);
+        if (flashInterval) clearInterval(flashInterval);
     }
 
     // --- Tab Management ---
@@ -619,16 +623,21 @@ class Clock extends AppBase {
 
         // Flash the display
         const display = this.getElement('#timerDisplay');
-        let flashes = 0;
-        const flashInterval = setInterval(() => {
-            display.style.color = flashes % 2 === 0 ? '#ff0000' : '#00ff00';
-            flashes++;
-            if (flashes >= 10) {
-                clearInterval(flashInterval);
-                display.style.color = '';
-            }
-            this.playSound('click');
-        }, 300);
+        if (display) {
+            let flashes = 0;
+            const flashInterval = setInterval(() => {
+                display.style.color = flashes % 2 === 0 ? '#ff0000' : '#00ff00';
+                flashes++;
+                if (flashes >= 10) {
+                    clearInterval(flashInterval);
+                    display.style.color = '';
+                }
+                this.playSound('click');
+            }, 300);
+
+            // Store the flash interval for cleanup
+            this.setInstanceState('flashInterval', flashInterval);
+        }
     }
 
     // --- Utilities ---

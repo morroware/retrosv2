@@ -26,6 +26,7 @@ class Winamp extends AppBase {
         this.volume = 75;
         this.balance = 50;
         this.oscillator = null;
+        this.lfoOscillator = null; // LFO for modulation
         this.gainNode = null;
         this.visualizerInterval = null;
         this.timeInterval = null;
@@ -376,12 +377,23 @@ class Winamp extends AppBase {
     }
 
     onClose() {
+        // Clear time interval first (before stop() to avoid race condition)
+        if (this.timeInterval) {
+            clearInterval(this.timeInterval);
+            this.timeInterval = null;
+        }
+
         this.stop();
+
         if (this.visualizerInterval) {
             cancelAnimationFrame(this.visualizerInterval);
+            this.visualizerInterval = null;
         }
+
+        // Close audio context after all nodes are stopped
         if (this.audioContext) {
             this.audioContext.close();
+            this.audioContext = null;
         }
     }
 
@@ -398,13 +410,13 @@ class Winamp extends AppBase {
             this.oscillator.frequency.setValueAtTime(track.freq, this.audioContext.currentTime);
 
             // Add some modulation for interest
-            const lfo = this.audioContext.createOscillator();
+            this.lfoOscillator = this.audioContext.createOscillator();
             const lfoGain = this.audioContext.createGain();
-            lfo.frequency.setValueAtTime(5, this.audioContext.currentTime);
+            this.lfoOscillator.frequency.setValueAtTime(5, this.audioContext.currentTime);
             lfoGain.gain.setValueAtTime(10, this.audioContext.currentTime);
-            lfo.connect(lfoGain);
+            this.lfoOscillator.connect(lfoGain);
             lfoGain.connect(this.oscillator.frequency);
-            lfo.start();
+            this.lfoOscillator.start();
 
             this.oscillator.connect(this.analyser);
             this.oscillator.start();
@@ -446,6 +458,12 @@ class Winamp extends AppBase {
         if (this.oscillator) {
             this.oscillator.stop();
             this.oscillator = null;
+        }
+
+        // Also stop the LFO oscillator to prevent memory leak
+        if (this.lfoOscillator) {
+            this.lfoOscillator.stop();
+            this.lfoOscillator = null;
         }
 
         this.isPlaying = false;

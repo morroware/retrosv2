@@ -55,6 +55,12 @@ class SystemMonitorClass {
             memory: null,
         };
 
+        // Animation frame ID for FPS tracking (for cleanup)
+        this.fpsAnimationId = null;
+
+        // Performance observer reference (for cleanup)
+        this.longTaskObserver = null;
+
         // Bound handlers for cleanup
         this._handlers = {};
 
@@ -97,6 +103,24 @@ class SystemMonitorClass {
         Object.values(this.intervals).forEach(id => {
             if (id) clearInterval(id);
         });
+
+        // Cancel FPS animation frame
+        if (this.fpsAnimationId) {
+            cancelAnimationFrame(this.fpsAnimationId);
+            this.fpsAnimationId = null;
+        }
+
+        // Disconnect long task observer
+        if (this.longTaskObserver) {
+            this.longTaskObserver.disconnect();
+            this.longTaskObserver = null;
+        }
+
+        // Clear long press timer if active
+        if (this.state.longPressTimer) {
+            clearTimeout(this.state.longPressTimer);
+            this.state.longPressTimer = null;
+        }
 
         // Remove event listeners
         this._removeAllListeners();
@@ -617,10 +641,11 @@ class SystemMonitorClass {
                 lastTime = currentTime;
             }
 
-            requestAnimationFrame(countFrame);
+            // Store the animation frame ID for cleanup
+            this.fpsAnimationId = requestAnimationFrame(countFrame);
         };
 
-        requestAnimationFrame(countFrame);
+        this.fpsAnimationId = requestAnimationFrame(countFrame);
     }
 
     _startMemoryTracking() {
@@ -650,7 +675,7 @@ class SystemMonitorClass {
         if (!window.PerformanceObserver) return;
 
         try {
-            const observer = new PerformanceObserver((list) => {
+            this.longTaskObserver = new PerformanceObserver((list) => {
                 for (const entry of list.getEntries()) {
                     EventBus.emit(Events.PERF_LONGTASK, {
                         duration: entry.duration,
@@ -660,9 +685,10 @@ class SystemMonitorClass {
                 }
             });
 
-            observer.observe({ entryTypes: ['longtask'] });
+            this.longTaskObserver.observe({ entryTypes: ['longtask'] });
         } catch (e) {
             // Long task observation not supported
+            this.longTaskObserver = null;
         }
     }
 
