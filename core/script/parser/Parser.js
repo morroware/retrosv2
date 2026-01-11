@@ -226,8 +226,10 @@ export class Parser {
         const parts = [];
         let currentText = '';
         let lastWasVariable = false;
+        let lastTokenType = null;
+        let lastWasCompoundConnector = false;  // Track if last connective was part of a compound
 
-        // Punctuation tokens that should NOT have a space before them
+        // Punctuation tokens that should NEVER have a space before them
         const noSpaceBeforeTokens = new Set([
             TokenType.NOT,        // !
             TokenType.COLON,      // :
@@ -239,14 +241,30 @@ export class Parser {
             TokenType.RBRACE      // }
         ]);
 
+        // Tokens that should NOT have a space after them
+        const noSpaceAfterTokens = new Set([
+            TokenType.LPAREN,     // (
+            TokenType.LBRACKET,   // [
+            TokenType.LBRACE      // {
+        ]);
+
+        // Connective tokens that should not have spaces when connecting identifiers
+        // These are tokens like - and = that connect words in compound expressions
+        const connectiveTokens = new Set([
+            TokenType.MINUS,      // - (for hyphens like "built-in")
+            TokenType.ASSIGN      // = (for text like "key=value")
+        ]);
+
         // Collect tokens until end of statement
         while (!this.isStatementEnd()) {
             const token = this.peek();
 
             if (token.type === TokenType.VARIABLE) {
-                // Save accumulated text as a literal (with trailing space for separation)
+                // Save accumulated text as a literal (with trailing space for separation, unless last was compound connector)
                 if (currentText.length > 0) {
-                    parts.push(new AST.LiteralExpression(currentText + ' ', location));
+                    const addTrailingSpace = !lastWasCompoundConnector &&
+                        (lastTokenType === null || !noSpaceAfterTokens.has(lastTokenType));
+                    parts.push(new AST.LiteralExpression(currentText + (addTrailingSpace ? ' ' : ''), location));
                     currentText = '';
                 }
 
@@ -254,15 +272,76 @@ export class Parser {
                 this.advance();
                 parts.push(new AST.VariableExpression(token.value, location));
                 lastWasVariable = true;
+                lastTokenType = TokenType.VARIABLE;
+                lastWasCompoundConnector = false;
             } else {
+                // Check if this is a connective token (- or =)
+                const isConnective = connectiveTokens.has(token.type);
+
+                // For connectives, check if they connect two word-like tokens (compound word/expression)
+                // This handles cases like "Built-in" (where "in" is a keyword), "key=value", "User=$var"
+                // Look at what the previous and next tokens are
+                let isCompoundConnector = false;
+                if (isConnective) {
+                    // Previous token should be a word (identifier or keyword)
+                    const prevIsWord = lastTokenType === TokenType.IDENTIFIER ||
+                        (lastTokenType !== null && this.tokens[this.current - 1]?.isKeyword?.());
+
+                    // Peek at the next token to see if it's a word-like token
+                    const nextIdx = this.current + 1;
+                    if (prevIsWord && nextIdx < this.tokens.length) {
+                        const nextToken = this.tokens[nextIdx];
+
+                        if (token.type === TokenType.ASSIGN) {
+                            // For =, treat as compound if next is identifier, keyword, or variable
+                            // This handles key=value, User=$name patterns
+                            isCompoundConnector = nextToken.type === TokenType.IDENTIFIER ||
+                                nextToken.type === TokenType.VARIABLE ||
+                                nextToken.isKeyword?.();
+                        } else if (token.type === TokenType.MINUS) {
+                            // For -, only treat as compound connector for common hyphenated word patterns
+                            // This handles built-in, real-time, up-to-date, e-mail, user-friendly, etc.
+                            // Common suffix words in compound words
+                            const compoundSuffixes = new Set([
+                                // Prepositions/particles often used in compounds
+                                'in', 'up', 'to', 'on', 'off', 'by', 'out', 'down', 'over', 'back',
+                                // Common compound word endings
+                                'time', 'mail', 'end', 'line', 'site', 'based', 'free', 'like',
+                                'friendly', 'ready', 'aware', 'proof', 'safe', 'style', 'wise',
+                                'level', 'type', 'mode', 'size', 'side', 'term', 'case', 'rate',
+                                'date', 'driven', 'oriented', 'related', 'specific', 'sensitive'
+                            ]);
+                            const nextValue = String(nextToken.value || '').toLowerCase();
+                            isCompoundConnector = nextToken.isKeyword?.() ||
+                                (nextToken.type === TokenType.IDENTIFIER && compoundSuffixes.has(nextValue));
+                        }
+                    }
+                }
+
                 // Check if this token should NOT have a space before it
-                const shouldAddSpace = !noSpaceBeforeTokens.has(token.type);
+                let shouldAddSpaceBefore = !noSpaceBeforeTokens.has(token.type);
+
+                // If this is a connective connecting identifiers, don't add space before
+                if (isConnective && isCompoundConnector) {
+                    shouldAddSpaceBefore = false;
+                }
+
+                // Check if last token should NOT have a space after it
+                const lastWasNoSpaceAfter = lastTokenType !== null && noSpaceAfterTokens.has(lastTokenType);
+
+                // Also check if current token follows a connective (for space handling)
+                const currentIsWord = token.type === TokenType.IDENTIFIER ||
+                    token.type === TokenType.VARIABLE ||
+                    token.isKeyword?.();
+                // If last was a compound connector AND current is a word, don't add space before current
+                const followsCompoundConnective = lastWasCompoundConnector && currentIsWord;
 
                 // Accumulate text from token
                 // Add space before this token if:
-                // 1. We already have text accumulated AND this isn't punctuation, OR
+                // 1. We already have text accumulated AND this isn't punctuation AND last token allows space after, OR
                 // 2. We just processed a variable AND this isn't punctuation
-                if (shouldAddSpace) {
+                // Don't add space if this token follows a compound connector (the hyphen or equals part of a compound word)
+                if (shouldAddSpaceBefore && !lastWasNoSpaceAfter && !followsCompoundConnective) {
                     if (currentText.length > 0) {
                         currentText += ' ';
                     } else if (lastWasVariable) {
@@ -275,6 +354,9 @@ export class Parser {
                 currentText += text;
                 this.advance();
                 lastWasVariable = false;
+                lastTokenType = token.type;
+                // Track if this was a compound connector (for next iteration)
+                lastWasCompoundConnector = isConnective && isCompoundConnector;
             }
         }
 
