@@ -32,7 +32,7 @@ export class ScriptError extends Error {
     }
 
     /**
-     * Get formatted error message with location info
+     * Get formatted error message with location info and source context
      */
     toString() {
         let result = `${this.name}: ${this.message}`;
@@ -42,6 +42,58 @@ export class ScriptError extends Error {
                 result += `, column ${this.column}`;
             }
         }
+
+        // Show source context if available
+        if (this.source && this.line > 0) {
+            const lines = this.source.split('\n');
+            const errorLine = lines[this.line - 1];
+            if (errorLine !== undefined) {
+                result += '\n\n';
+                // Show line number with padding
+                const lineNum = String(this.line).padStart(4, ' ');
+                result += `${lineNum} | ${errorLine}\n`;
+                // Show pointer to error column
+                if (this.column > 0) {
+                    const pointer = ' '.repeat(this.column - 1) + '^';
+                    result += `     | ${pointer}`;
+                }
+            }
+        }
+
+        if (this.hint) {
+            result += `\n\nHint: ${this.hint}`;
+        }
+        return result;
+    }
+
+    /**
+     * Get a formatted multi-line error string with context
+     * @param {string} fullSource - Full source code for context display
+     * @param {number} contextLines - Number of lines before/after to show (default: 2)
+     * @returns {string} Formatted error with source context
+     */
+    toStringWithContext(fullSource, contextLines = 2) {
+        let result = `${this.name}: ${this.message}`;
+
+        if (this.line > 0 && fullSource) {
+            const lines = fullSource.split('\n');
+            const startLine = Math.max(0, this.line - 1 - contextLines);
+            const endLine = Math.min(lines.length, this.line + contextLines);
+
+            result += '\n\n';
+            for (let i = startLine; i < endLine; i++) {
+                const lineNum = String(i + 1).padStart(4, ' ');
+                const marker = (i + 1 === this.line) ? '>' : ' ';
+                result += `${marker}${lineNum} | ${lines[i]}\n`;
+
+                // Show pointer on error line
+                if (i + 1 === this.line && this.column > 0) {
+                    const pointer = ' '.repeat(this.column - 1) + '^';
+                    result += `      | ${pointer}\n`;
+                }
+            }
+        }
+
         if (this.hint) {
             result += `\nHint: ${this.hint}`;
         }

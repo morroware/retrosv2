@@ -193,15 +193,17 @@ export class CallStatement extends Statement {
 }
 
 /**
- * Try/Catch statement - error handling
- * try { ... } catch $err { ... }
+ * Try/Catch/Finally statement - error handling
+ * try { ... } catch $err { ... } finally { ... }
+ * The catch and finally blocks are both optional, but at least one must be present
  */
 export class TryCatchStatement extends Statement {
-    constructor(tryBody, catchBody, errorVar, location) {
+    constructor(tryBody, catchBody, errorVar, location, finallyBody = null) {
         super('TryCatch', location);
         this.tryBody = tryBody;
         this.catchBody = catchBody;
         this.errorVar = errorVar || 'error';
+        this.finallyBody = finallyBody; // Optional - null if not provided
     }
 
     accept(visitor) {

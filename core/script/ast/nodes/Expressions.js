@@ -179,9 +179,45 @@ export class InterpolatedStringExpression extends Expression {
 }
 
 /**
+ * Ternary conditional expression
+ * condition ? trueExpr : falseExpr
+ */
+export class TernaryExpression extends Expression {
+    constructor(condition, trueExpr, falseExpr, location) {
+        super('Ternary', location);
+        this.condition = condition;
+        this.trueExpr = trueExpr;
+        this.falseExpr = falseExpr;
+    }
+
+    accept(visitor) {
+        return visitor.visitTernaryExpression(this);
+    }
+}
+
+/**
+ * Null coalescing expression
+ * expr ?? defaultExpr
+ * Returns left side if not null/undefined, otherwise right side
+ */
+export class NullishExpression extends Expression {
+    constructor(left, right, location) {
+        super('Nullish', location);
+        this.left = left;
+        this.right = right;
+    }
+
+    accept(visitor) {
+        return visitor.visitNullishExpression(this);
+    }
+}
+
+/**
  * Operator precedence levels (higher = binds tighter)
  */
 export const PRECEDENCE = {
+    TERNARY: 0,     // ? : (lowest precedence)
+    NULLISH: 0.5,   // ?? (just above ternary)
     OR: 1,          // ||
     AND: 2,         // &&
     EQUALITY: 3,    // == !=
@@ -239,6 +275,8 @@ export default {
     IndexExpression,
     GroupingExpression,
     InterpolatedStringExpression,
+    TernaryExpression,
+    NullishExpression,
     PRECEDENCE,
     getOperatorPrecedence,
     isRightAssociative
