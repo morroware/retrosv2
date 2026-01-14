@@ -281,8 +281,9 @@ export class Parser {
             TokenType.ASSIGN      // = (for text like "key=value")
         ]);
 
-        // Collect tokens until end of statement
-        while (!this.isStatementEnd()) {
+        // Collect tokens until end of line (for unquoted text, don't stop at braces)
+        // Unlike isStatementEnd(), we don't stop at RBRACE since it could be literal text like "typeof({a:1})"
+        while (!this.isUnquotedTextEnd()) {
             const token = this.peek();
 
             if (token.type === TokenType.VARIABLE) {
@@ -1256,10 +1257,11 @@ export class Parser {
             }
             const funcName = this.advance().value;
 
-            // Parse arguments (more permissive - until end of expression context)
+            // Parse arguments - continue while token can start an expression
+            // Uses canStartExpression() to properly handle object/array literals and negative numbers
             const args = [];
-            while (!this.isExpressionEnd()) {
-                args.push(this.parsePostfixExpression());
+            while (this.canStartExpression()) {
+                args.push(this.parseUnaryExpression());
             }
 
             return new AST.CallExpression(funcName, args, location);
@@ -1451,12 +1453,46 @@ export class Parser {
     }
 
     /**
+     * Check if at end of unquoted text (for print statements)
+     * Unlike isStatementEnd(), this does NOT stop at RBRACE since
+     * unquoted text can contain braces as literal characters.
+     * Example: print typeof({a:1}) should include the whole text
+     */
+    isUnquotedTextEnd() {
+        return this.check(TokenType.NEWLINE) ||
+               this.check(TokenType.SEMICOLON) ||
+               this.check(TokenType.EOF);
+    }
+
+    /**
      * Check if at end of expression (more permissive)
      * Binary operator present means we should CONTINUE parsing, not end
      */
     isExpressionEnd() {
         return this.isStatementEnd() ||
                this.getBinaryOperator() === null;
+    }
+
+    /**
+     * Check if current token can start an expression
+     * Used for parsing function call arguments
+     */
+    canStartExpression() {
+        if (this.isStatementEnd()) return false;
+        const type = this.peek().type;
+        return type === TokenType.NUMBER ||
+               type === TokenType.STRING ||
+               type === TokenType.TRUE ||
+               type === TokenType.FALSE ||
+               type === TokenType.NULL ||
+               type === TokenType.VARIABLE ||
+               type === TokenType.IDENTIFIER ||
+               type === TokenType.LBRACKET ||   // Array literal
+               type === TokenType.LBRACE ||     // Object literal
+               type === TokenType.LPAREN ||     // Grouping
+               type === TokenType.MINUS ||      // Unary minus
+               type === TokenType.NOT ||        // Logical not
+               type === TokenType.CALL;         // Nested call
     }
 
     /**
